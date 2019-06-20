@@ -31,7 +31,7 @@ and (case when COALESCE(i.inventory_adjustment_retail_local_amount,0) <> 0 then 
 group by 
      i.product_key
     ,i.store_key
-	,i.bu_key
+		,i.bu_key
     ,d.fiscal_year 
     ,d.fiscal_month 
     ,d.fiscal_week_of_year
