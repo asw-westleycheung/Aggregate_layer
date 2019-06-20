@@ -25,6 +25,10 @@ s.store_key
 , s.store_district as district_name
 , s.store_county as county_name
 , s.store_province as province_name
+, s.latitude
+, s.longitude
+, s.total_area
+, s.selling_area
 , s.store_open_date
 , s.store_close_date
 , s.last_relocation_date as store_move_date
