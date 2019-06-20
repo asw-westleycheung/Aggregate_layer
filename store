@@ -1,0 +1,265 @@
+spark.sql("""
+with root_hs_level as (
+    select hs2.hierarchies_key, h2.hierarchy_key, h2.hierarchy_level 
+
+    from rdm.d_hierarchies hs2 
+    join rdm.d_hierarchy h2 on hs2.hierarchy_key = h2.hierarchy_key
+
+    inner join 
+        (select hs.hierarchies_key, max(h.hierarchy_level) as level 
+        from rdm.d_hierarchies hs 
+        left join rdm.d_hierarchy h 
+        on hs.hierarchy_key = h.hierarchy_key 
+        group by hs.hierarchies_key) hl
+
+    on hs2.hierarchies_key = hl.hierarchies_key 
+    and h2.hierarchy_level =  hl.level
+),
+
+hierarchy_levels as (
+    select 
+        distinct h1.hierarchy_level,
+        coalesce(h6.hierarchy_key,
+                h5.hierarchy_key,
+                h4.hierarchy_key,
+                h3.hierarchy_key,
+                h2.hierarchy_key,
+                h1.hierarchy_key) as hierarchy_key
+                
+       , h1.hierarchy_key as l_hierarchy_key
+       
+       , coalesce(h6.hierarchy_type,
+                h5.hierarchy_type,
+                h4.hierarchy_type,
+                h3.hierarchy_type,
+                h2.hierarchy_type,
+                h1.hierarchy_type) as hierarchy_type
+                
+        , h1.hierarchy_type as l_hierarchy_type 
+        
+        , case when h6.hierarchy_key is not null then 6
+              when h5.hierarchy_key is not null then 5
+              when h4.hierarchy_key is not null then 4
+              when h3.hierarchy_key is not null then 3
+              when h2.hierarchy_key is not null then 2
+              when h1.hierarchy_key is not null then 1
+              end Level
+              
+       ,h1.hierarchy_key  h1_hierarchy_key
+       ,h2.hierarchy_key  h2_hierarchy_key
+       ,h3.hierarchy_key  h3_hierarchy_key
+       ,h4.hierarchy_key  h4_hierarchy_key
+       ,h5.hierarchy_key  h5_hierarchy_key
+       ,h6.hierarchy_key  h6_hierarchy_key
+       
+       ,h1.hierarchy_name h1_hierarchy_name
+       ,h2.hierarchy_name h2_hierarchy_name
+       ,h3.hierarchy_name h3_hierarchy_name
+       ,h4.hierarchy_name h4_hierarchy_name
+       ,h5.hierarchy_name h5_hierarchy_name
+       ,h6.hierarchy_name h6_hierarchy_name    
+       
+       ,h1.hierarchy_code h1_hierarchy_code
+       ,h2.hierarchy_code h2_hierarchy_code
+       ,h3.hierarchy_code h3_hierarchy_code
+       ,h4.hierarchy_code h4_hierarchy_code
+       ,h5.hierarchy_code h5_hierarchy_code
+       ,h6.hierarchy_code h6_hierarchy_code
+       
+       ,h1.hierarchy_display_name h1_hierarchy_display_name
+       ,h2.hierarchy_display_name h2_hierarchy_display_name
+       ,h3.hierarchy_display_name h3_hierarchy_display_name
+       ,h4.hierarchy_display_name h4_hierarchy_display_name
+       ,h5.hierarchy_display_name h5_hierarchy_display_name
+       ,h6.hierarchy_display_name h6_hierarchy_display_name
+       
+       ,h1.hierarchy_description h1_hierarchy_description
+       ,h2.hierarchy_description h2_hierarchy_description
+       ,h3.hierarchy_description h3_hierarchy_description
+       ,h4.hierarchy_description h4_hierarchy_description
+       ,h5.hierarchy_description h5_hierarchy_description
+       ,h6.hierarchy_description h6_hierarchy_description
+                
+    FROM rdm.d_hierarchy h1 
+    left join rdm.d_hierarchy h2 
+    on h1.parent_key = h2.hierarchy_key
+    and h2.hierarchy_type = h1.hierarchy_type      
+        left join rdm.d_hierarchy h3
+    on h2.parent_key = h3.hierarchy_key
+    and h3.hierarchy_type = h2.hierarchy_type
+        left join rdm.d_hierarchy h4 
+    on h3.parent_key = h4.hierarchy_key
+    and h4.hierarchy_type = h3.hierarchy_type
+        left join rdm.d_hierarchy h5 
+    on h4.parent_key = h5.hierarchy_key
+    and h5.hierarchy_type = h4.hierarchy_type   
+        left join  rdm.d_hierarchy h6 
+    on h5.parent_key = h6.hierarchy_key
+    and h6.hierarchy_type = h5.hierarchy_type
+),
+
+hier_sets as (
+    select 
+        d_store.store_hierarchies_key hierarchies_key,
+        d_store.store_id,
+        Row_number() Over (Partition by d_store.store_id Order by monotonically_increasing_id()) hier_id
+      
+    from rdm.d_store as d_store
+    join rdm.d_hierarchies as d_hierarchies
+    on d_store.store_hierarchies_key = d_hierarchies.hierarchies_key 
+ 
+    group by d_store.store_hierarchies_key, d_store.store_id
+)
+
+--Query for store_extended
+    select 
+        d_store.store_key,
+        d_store.bu_key,
+        d_store.store_id,
+        d_store.store_operation as division_type_code,
+        d_store.store_number as store_code,
+        d_store.store_name,
+        d_store.store_alternate_name as store_other_name,
+        d_store.store_type as store_format_code,
+        d_store.store_type_description as store_format_name,
+        d_store.store_manager_id as store_manager_code,
+        d_store.store_manager_name,
+        d_store.store_street_address_line_1 as address_1,
+        d_store.store_street_address_line_2 as address_2,
+        d_store.store_street_address_line_3 as address_3,
+        d_store.store_street_address_line_4 as address_4,
+        d_store.store_street_address_line_5 as address_5,
+        d_store.store_phone_number as phone_num,
+        d_store.store_fax_number as fax_num,
+        d_store.store_country as country_name,
+        d_store.store_region as region_name,
+        d_store.store_city as city_name,
+        d_store.store_district as district_name,
+        d_store.store_county as county_name,
+        d_store.store_province as province_name,
+        d_store.store_open_date,
+        d_store.store_close_date,
+        d_store.last_relocation_date as store_move_date,
+        d_store.last_remodel_date as store_renovation_date,
+        d_store.zip_code,
+        d_store.is_web_store as web_store_flag,
+        d_store.is_franchise_store as franchise_store_flag,
+        d_store.is_closed as store_closed_flag,
+        d_store.is_test_store as test_store_flag,
+        d_store.is_comparable_store as comp_store_flag,
+        d_store.etl_first_load as first_load_date,
+        d_store.etl_last_update as last_update_date,
+        d_store.store_hierarchies_key,
+        
+        hl1.level h1_store_hierarchy_level,       
+        hl2.level h2_store_hierarchy_level,
+        hl3.level h3_store_hierarchy_level,
+        hl1.h1_hierarchy_key h1_l1_hierarchy_key,
+        hl1.h1_hierarchy_name h1_l1_hierarchy_name,
+        hl1.h1_hierarchy_code h1_l1_hierarchy_code,
+        hl1.h1_hierarchy_description h1_l1_hierarchy_description,
+        hl1.h2_hierarchy_key h1_l2_hierarchy_key,
+        hl1.h2_hierarchy_name h1_l2_hierarchy_name,
+        hl1.h2_hierarchy_code h1_l2_hierarchy_code,
+        hl1.h2_hierarchy_description h1_l2_hierarchy_description,       
+        hl1.h3_hierarchy_key h1_l3_hierarchy_key,
+        hl1.h3_hierarchy_name h1_l3_hierarchy_name,
+        hl1.h3_hierarchy_code h1_l3_hierarchy_code,
+        hl1.h3_hierarchy_description h1_l3_hierarchy_description ,      
+        hl1.h4_hierarchy_key h1_l4_hierarchy_key,
+        hl1.h4_hierarchy_name h1_l4_hierarchy_name,
+        hl1.h4_hierarchy_code h1_l4_hierarchy_code,
+        hl1.h4_hierarchy_description h1_l4_hierarchy_description,
+        hl1.h5_hierarchy_key h1_l5_hierarchy_key,
+        hl1.h5_hierarchy_name h1_l5_hierarchy_name,
+        hl1.h5_hierarchy_code h1_l5_hierarchy_code,
+        hl1.h5_hierarchy_description h1_l5_hierarchy_description,       
+        hl1.h6_hierarchy_key h1_l6_hierarchy_key,
+        hl1.h6_hierarchy_name h1_l6_hierarchy_name,
+        hl1.h6_hierarchy_code h1_l6_hierarchy_code,
+        hl1.h6_hierarchy_description h1_l6_hierarchy_description,
+        
+        hl2.h1_hierarchy_key h2_l1_hierarchy_key,
+        hl2.h1_hierarchy_name h2_l1_hierarchy_name,
+        hl2.h1_hierarchy_code h2_l1_hierarchy_code,
+        hl2.h1_hierarchy_description h2_l1_hierarchy_description,
+        hl2.h2_hierarchy_key h2_l2_hierarchy_key,
+        hl2.h2_hierarchy_name h2_l2_hierarchy_name,
+        hl2.h2_hierarchy_code h2_l2_hierarchy_code,
+        hl2.h2_hierarchy_description h2_l2_hierarchy_description,       
+        hl2.h3_hierarchy_key h2_l3_hierarchy_key,
+        hl2.h3_hierarchy_name h2_l3_hierarchy_name,
+        hl2.h3_hierarchy_code h2_l3_hierarchy_code,
+        hl2.h3_hierarchy_description h2_l3_hierarchy_description ,      
+        hl2.h4_hierarchy_key h2_l4_hierarchy_key,
+        hl2.h4_hierarchy_name h2_l4_hierarchy_name,
+        hl2.h4_hierarchy_code h2_l4_hierarchy_code,
+        hl2.h4_hierarchy_description h2_l4_hierarchy_description,
+        hl2.h5_hierarchy_key h2_l5_hierarchy_key,
+        hl2.h5_hierarchy_name h2_l5_hierarchy_name,
+        hl2.h5_hierarchy_code h2_l5_hierarchy_code,
+        hl2.h5_hierarchy_description h2_l5_hierarchy_description,       
+        hl2.h6_hierarchy_key h2_l6_hierarchy_key,
+        hl2.h6_hierarchy_name h2_l6_hierarchy_name,
+        hl2.h6_hierarchy_code h2_l6_hierarchy_code,
+        hl2.h6_hierarchy_description h2_l6_hierarchy_description,
+        
+        hl3.h1_hierarchy_key h3_l1_hierarchy_key,
+        hl3.h1_hierarchy_name h3_l1_hierarchy_name,
+        hl3.h1_hierarchy_code h3_l1_hierarchy_code,
+        hl3.h1_hierarchy_description h3_l1_hierarchy_description,
+        hl3.h2_hierarchy_key h3_l2_hierarchy_key,
+        hl3.h2_hierarchy_name h3_l2_hierarchy_name,
+        hl3.h2_hierarchy_code h3_l2_hierarchy_code,
+        hl3.h2_hierarchy_description h3_l2_hierarchy_description,       
+        hl3.h3_hierarchy_key h3_l3_hierarchy_key,
+        hl3.h3_hierarchy_name h3_l3_hierarchy_name,
+        hl3.h3_hierarchy_code h3_l3_hierarchy_code,
+        hl3.h3_hierarchy_description h3_l3_hierarchy_description ,      
+        hl3.h4_hierarchy_key h3_l4_hierarchy_key,
+        hl3.h4_hierarchy_name h3_l4_hierarchy_name,
+        hl3.h4_hierarchy_code h3_l4_hierarchy_code,
+        hl3.h4_hierarchy_description h3_l4_hierarchy_description,
+        hl3.h5_hierarchy_key h3_l5_hierarchy_key,
+        hl3.h5_hierarchy_name h3_l5_hierarchy_name,
+        hl3.h5_hierarchy_code h3_l5_hierarchy_code,
+        hl3.h5_hierarchy_description h3_l5_hierarchy_description,       
+        hl3.h6_hierarchy_key h3_l6_hierarchy_key,
+        hl3.h6_hierarchy_name h3_l6_hierarchy_name,
+        hl3.h6_hierarchy_code h3_l6_hierarchy_code,
+        hl3.h6_hierarchy_description h3_l6_hierarchy_description
+                
+    from rdm.d_store as d_store
+    
+        left join hier_sets hs1
+        on  d_store.store_hierarchies_key = hs1.hierarchies_key
+        and hs1.hier_id = 1
+
+        left join rdm.d_hierarchies  hrk1     
+        on  hs1.hierarchies_key = hrk1.hierarchies_key 
+
+        left join hierarchy_levels hl1
+        on  hrk1.hierarchy_key = hl1.l_hierarchy_key
+
+        left join hier_sets hs2
+        on  d_store.store_hierarchies_key = hs2.hierarchies_key
+        and hs1.hier_id = 2      
+
+        left join rdm.d_hierarchies  hrk2     
+        on hs2.hierarchies_key = hrk2.hierarchies_key 
+
+        left join hierarchy_levels hl2
+        on  hrk2.hierarchy_key = hl2.l_hierarchy_key
+
+        left join hier_sets hs3
+        on  d_store.store_hierarchies_key = hs3.hierarchies_key
+        and hs3.hier_id = 3      
+
+        left join rdm.d_hierarchies  hrk3     
+        on  hs3.hierarchies_key = hrk3.hierarchies_key 
+
+        left join hierarchy_levels hl3
+        on  hrk3.hierarchy_key = hl3.l_hierarchy_key
+    
+        inner join root_hs_level on hl1.h1_hierarchy_key = root_hs_level.hierarchy_key
+""").write.mode("overwrite").saveAsTable("default.store")
