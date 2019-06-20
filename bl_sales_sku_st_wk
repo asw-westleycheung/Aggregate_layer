@@ -1,0 +1,129 @@
+spark.sql("""
+select
+ main.product_key
+,main.store_key
+,main.fiscal_year
+,main.fiscal_month
+,main.fiscal_week_of_year
+,main.fiscal_year_week
+,d.fiscal_week_start_date as period_start_date
+,d.fiscal_week_end_date as period_end_date
+,case when d.fiscal_week_of_year is null then 0 else 1 end 	as valid_date_flag ---to take care week 53 problem
+,main.max_fiscal_date
+,d.vs_max_sales_year -- if it is invalid week 53, it will show null
+,d.vs_max_sales_month -- if it is invalid week 53, it will show null
+,d.vs_max_sales_week -- if it is invalid week 53, it will show null
+,bu.bu_id 													as bu_code
+,bu.bu_name
+,p.principle_supplier_code 									as supplier_code
+,p.mother_company_name 										as supplier_name
+,p.brand_type_name
+,p.brand_name
+,nvl(p.h1_l1_hierarchy_code,'-') 							as Category_Code
+,nvl(substring(p.h1_l1_hierarchy_code,3,2),'-') 			as Cate_No
+,p.h1_l1_hierarchy_name 									as Category_Name
+,nvl(p.h1_l2_hierarchy_code,'-') 							as Department_Code
+,nvl(substring(p.h1_l2_hierarchy_code,7,2),'-') 			as Dept_No
+,p.h1_l2_hierarchy_name 									as Department_Name
+,nvl(p.h1_l3_hierarchy_code,'-') 							as Class_Code
+,nvl(substring(p.h1_l3_hierarchy_code,11,2),'-') 			as Class_No
+,p.h1_l3_hierarchy_name										as Class_Name
+,nvl(p.h1_l4_hierarchy_code,'-')							as Sub_Class_Code
+,nvl(substring(p.h1_l4_hierarchy_code,15,2),'-')			as Sub_Class_No
+,p.h1_l4_hierarchy_name										as Sub_Class_Name
+,p.product_id
+,p.product_other_name 										as product_name_eng
+,p.product_name
+,case when nvl(substring(p.h1_l1_hierarchy_code,3,2),'-') = '09' then p.h1_l1_hierarchy_name
+when nvl(substring(p.h1_l2_hierarchy_code,7,2),'-')>94 then p.h1_l2_hierarchy_name
+when nvl(substring(p.h1_l2_hierarchy_code,7,2),'-')=90 then p.h1_l2_hierarchy_name
+when p.product_id in ('989898','979797','666666') then p.product_other_description else 1 end as sku_flag
+,s.store_id
+,s.store_code
+,s.store_name
+,s.store_other_name
+,s.store_format_code
+,s.store_format_name
+,s.web_store_flag
+,s.comp_store_flag
+,s.h1_l2_hierarchy_name 									as Region
+,s.h1_l5_hierarchy_name 									as Area
+,s.address_5 												as City_Name_loc
+,SUBSTRING(s.address_5,1,3) 								as State
+,SUBSTRING(s.city_name,4,5)                                 as City
+,case when s.web_store_flag = 'Y' then 1 Else 0 END			as store_type
+,case when s.web_store_flag = 'Y' then 'Online Store' 
+	else 'Physical Store' END 								as store_type_description
+,concat(s.address_1, s.address_2) 							as Loc_Addr
+,s.latitude 												aS store_latitude
+,s.longitude 												aS store_longitude
+,nvl(main.sales_amt_local,0) 								as sales_amt_local
+,nvl(main.cogs_amt_local,0) 								as cogs_amt_local
+,nvl(main.gross_profit_amt_local,0) 						as gross_profit_amt_local
+,nvl(main.gross_margin_amt_local,0) 						as gross_margin_amt_local
+,nvl(main.adj_amt_local,0) 									as adj_amt_local
+,nvl(main.compensation,0) 									as compensation
+,nvl(main.qty,0) 											as qty
+,nvl(main.sales_amt_local_shrink,0) 						as sales_amt_local_shrink
+,nvl(main.cogs_amt_local_shrink,0) 							as cogs_amt_local_shrink
+,nvl(main.qty_shrink,0) 									as qty_shrink
+,nvl(main.sales_amt_local_ly,0) 							as sales_amt_local_ly
+,nvl(main.cogs_amt_local_ly,0) 								as cogs_amt_local_ly
+,nvl(main.gross_profit_amt_local_ly,0) 						as gross_profit_amt_local_ly
+,nvl(main.gross_margin_amt_local_ly,0) 						as gross_margin_amt_local_ly
+,nvl(main.adj_amt_local_ly,0) 								as adj_amt_local_ly
+,nvl(main.compensation_ly,0) 								as compensation_ly
+,nvl(main.qty_ly,0)											as qty_ly
+,nvl(main.sales_amt_local_shrink_ly,0) 						as sales_amt_local_shrink_ly
+,nvl(main.cogs_amt_local_shrink_ly,0) 						as cogs_amt_local_shrink_ly
+,nvl(main.qty_shrink_ly,0) 									as qty_shrink_ly
+,current_timestamp as table_last_update
+from (
+        select 
+             nvl(ty.product_key,ly.product_key) 							as product_key
+            ,nvl(ty.store_key,ly.store_key) 								as store_key
+			,nvl(ty.bu_key,ly.bu_key) 										as bu_key
+            ,nvl(ty.fiscal_year,cast(ly.fiscal_year+1 as INT)) 				as fiscal_year
+            ,nvl(ty.fiscal_month,ly.fiscal_month) 							as fiscal_month
+            ,nvl(ty.fiscal_week_of_year,ly.fiscal_week_of_year) 			as fiscal_week_of_year
+            ,nvl(ty.fiscal_year_week,cast(ly.fiscal_year_week+100 as INT)) 	as fiscal_year_week --this will generate week 53
+            ,nvl(ty.max_fiscal_date,ly.max_fiscal_date) 					as max_fiscal_date
+            ,nvl(ty.sales_amt_local,0) 										as sales_amt_local
+            ,nvl(ty.cogs_amt_local,0) 										as cogs_amt_local
+            ,nvl(ty.gross_profit_amt_local,0) 								as gross_profit_amt_local
+            ,nvl(ty.gross_profit_amt_local,0)+nvl(ty.compensation,0)		as gross_margin_amt_local
+            ,nvl(ty.adj_amt_local,0) 										as adj_amt_local
+			,nvl(ty.compensation,0) 										as compensation
+            ,nvl(ty.qty,0) 													as qty
+            ,nvl(ty.sales_amt_local_shrink,0) 								as sales_amt_local_shrink
+            ,nvl(ty.cogs_amt_local_shrink,0) 								as cogs_amt_local_shrink
+            ,nvl(ty.qty_shrink,0) 											as qty_shrink
+            ,nvl(ly.sales_amt_local,0) 										as sales_amt_local_ly
+            ,nvl(ly.cogs_amt_local,0)										as cogs_amt_local_ly
+            ,nvl(ly.gross_profit_amt_local,0) 								as gross_profit_amt_local_ly
+            ,nvl(ly.gross_profit_amt_local,0)+nvl(ly.compensation,0)		as gross_margin_amt_local_ly
+            ,nvl(ly.adj_amt_local,0) 										as adj_amt_local_ly
+			,nvl(ly.compensation,0) 										as compensation_ly
+            ,nvl(ly.qty,0) 													as qty_ly
+            ,nvl(ly.sales_amt_local_shrink,0) 								as sales_amt_local_shrink_ly
+            ,nvl(ly.cogs_amt_local_shrink,0) 								as cogs_amt_local_shrink_ly
+            ,nvl(ly.qty_shrink,0) 											as qty_shrink_ly
+        from default.temp_sales_aggregate_wk ty
+        full outer join default.temp_sales_aggregate_wk ly on ty.product_key = ly.product_key
+                                                          and ty.store_key = ly.store_key
+                                                          and ty.fiscal_year -1 = ly.fiscal_year 
+                                                          and ty.fiscal_week_of_year = ly.fiscal_week_of_year
+        where ty.vs_max_sales_year >=-2 or ly.vs_max_sales_year in (-1,-2,-3)
+    ) main
+Left join default.product p 			on p.product_key 		= main.product_key
+Left join default.store s 				on s.store_key 			= main.store_key
+left join (
+            select fiscal_year,fiscal_week_of_year,fiscal_week_start_date,fiscal_week_end_date,vs_max_sales_year,vs_max_sales_month,vs_max_sales_week from default.bl_business_date d 
+            group by fiscal_year,fiscal_week_of_year,fiscal_week_start_date,fiscal_week_end_date,vs_max_sales_year,vs_max_sales_month,vs_max_sales_week
+            ) d on d.fiscal_week_of_year = main.fiscal_week_of_year
+				and d.fiscal_year 		= main.fiscal_year
+left join rdm.d_business_unit bu 	on bu.bu_key = main.bu_key
+where 
+(d.vs_max_sales_week <= - 1
+or (date_format(max_fiscal_date, 'EEEE') = 'Sunday' and d.vs_max_sales_week <= 0))
+""").write.mode("overwrite").saveAsTable("default.bl_sales_sku_st_wk")
