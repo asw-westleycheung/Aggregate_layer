@@ -3,7 +3,7 @@ spark.sql("""
 SELECT 
      i.product_key
     ,i.store_key
-	,i.bu_key
+		,i.bu_key
     ,d.fiscal_year 
     ,d.fiscal_month 
     ,d.fiscal_week_of_year
@@ -21,7 +21,7 @@ SELECT
     ,SUM(CASE WHEN inventory_adjustment_reason_type = '22' AND inventory_adjustment_reason_code IN ('-10','-6','-2','7','8','54','74','75','76','77','80','81','82','83','84','85','86','87','88','89','90','91','92','93','204','205','207','208','210','211','212') THEN inventory_adjustment_retail_local_amount ELSE 0 END) AS sales_amt_local_shrink
     ,SUM(CASE WHEN inventory_adjustment_reason_type = '22' AND inventory_adjustment_reason_code IN ('-10','-6','-2','7','8','54','74','75','76','77','80','81','82','83','84','85','86','87','88','89','90','91','92','93','204','205','207','208','210','211','212') THEN inventory_adjustment_cost_local_amount ELSE 0 END) AS cogs_amt_local_shrink
     ,SUM(CASE WHEN inventory_adjustment_reason_type = '22' AND inventory_adjustment_reason_code IN ('-10','-6','-2','7','8','54','74','75','76','77','80','81','82','83','84','85','86','87','88','89','90','91','92','93','204','205','207','208','210','211','212') THEN inventory_adjustment_quantity ELSE 0 END) AS qty_shrink
-	,current_timestamp as table_last_update
+		,current_timestamp as table_last_update
 FROM rkrdmx.f_rk_inventory_adjustment i
 JOIN default.bl_business_date d ON i.transaction_date_key = d.fiscal_date_key
 where d.fiscal_week_end_date <= d.max_fiscal_date
