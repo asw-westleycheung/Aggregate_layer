@@ -1,117 +1,68 @@
 spark.sql("""
-WITH hierarchy_levels as
-(
-SELECT
-    DISTINCT
-    h.hierarchies_key
-   ,l1.hierarchy_level
-   ,coalesce(l6.hierarchy_key,l5.hierarchy_key,l4.hierarchy_key,l3.hierarchy_key,l2.hierarchy_key,l1.hierarchy_key) as hierarchy_key
-   ,coalesce(l6.hierarchy_type, l5.hierarchy_type,l4.hierarchy_type,l3.hierarchy_type,l2.hierarchy_type,l1.hierarchy_type) as hierarchy_type
-   ,case WHEN l6.hierarchy_key IS NOT NULL THEN 'L6'
-        WHEN l5.hierarchy_key IS NOT NULL THEN 'L5'
-        WHEN l4.hierarchy_key IS NOT NULL THEN 'L4'
-        WHEN l3.hierarchy_key IS NOT NULL THEN 'L3'
-        WHEN l2.hierarchy_key IS NOT NULL THEN 'L2'
-        WHEN l1.hierarchy_key IS NOT NULL THEN 'L1'
-        END 											as level
-    ,l1.hierarchy_key									as l1_hierarchy_key
-   ,l2.hierarchy_key									as l2_hierarchy_key
-   ,l3.hierarchy_key									as l3_hierarchy_key
-   ,l4.hierarchy_key									as l4_hierarchy_key
-   ,l5.hierarchy_key									as l5_hierarchy_key
-   ,l6.hierarchy_key									as l6_hierarchy_key
-   ,l1.hierarchy_name									as l1_hierarchy_name
-   ,l2.hierarchy_name									as l2_hierarchy_name
-   ,l3.hierarchy_name									as l3_hierarchy_name
-   ,l4.hierarchy_name									as l4_hierarchy_name
-   ,l5.hierarchy_name									as l5_hierarchy_name
-   ,l6.hierarchy_name									as l6_hierarchy_name
-   ,l1.hierarchy_code									as l1_hierarchy_code
-   ,l1.hierarchy_display_name 							as l1_hierarchy_display_name
-   ,l1.hierarchy_description							as l1_hierarchy_description
-   ,l2.hierarchy_code									as l2_hierarchy_code
-   ,l2.hierarchy_display_name							as l2_hierarchy_display_name
-   ,l2.hierarchy_description							as l2_hierarchy_description
-   ,l3.hierarchy_code									as l3_hierarchy_code
-   ,l3.hierarchy_display_name							as l3_hierarchy_display_name
-   ,l3.hierarchy_description							as l3_hierarchy_description
-   ,l4.hierarchy_code									as l4_hierarchy_code
-   ,l4.hierarchy_display_name							as l4_hierarchy_display_name
-   ,l4.hierarchy_description							as l4_hierarchy_description
-   ,l5.hierarchy_code									as l5_hierarchy_code
-   ,l5.hierarchy_display_name							as l5_hierarchy_display_name
-   ,l5.hierarchy_description							as l5_hierarchy_description
-   ,l6.hierarchy_code									as l6_hierarchy_code
-   ,l6.hierarchy_display_name							as l6_hierarchy_display_name
-   ,l6.hierarchy_description							as l6_hierarchy_description
-	,ROW_NUMBER() OVER (PARTITION BY h.hierarchies_key ORDER BY l1.hierarchy_level desc) as row_no --temporary line since store and hierarchies is 1-many
-FROM rdm.d_hierarchies h
-LEFT JOIN rdm.d_hierarchy l1 on l1.hierarchy_key =  h.hierarchy_key
-LEFT JOIN rdm.d_hierarchy l2 on l1.parent_key = l2.hierarchy_key and l1.hierarchy_type = l2.hierarchy_type
-LEFT JOIN rdm.d_hierarchy l3 on l2.parent_key = l3.hierarchy_key and l2.hierarchy_type = l3.hierarchy_type
-LEFT JOIN rdm.d_hierarchy l4 on l3.parent_key = l4.hierarchy_key and l3.hierarchy_type = l4.hierarchy_type
-LEFT JOIN rdm.d_hierarchy l5 on l4.parent_key = l5.hierarchy_key and l4.hierarchy_type = l5.hierarchy_type
-LEFT JOIN rdm.d_hierarchy l6 on l5.parent_key = l6.hierarchy_key and l5.hierarchy_type = l6.hierarchy_type   
-)
 
 select 
-    s.store_key
-    , s.bu_key
-    , s.store_id
-    , s.store_operation as division_type_code
-    , s.store_number as store_code
-    , s.store_name
-    , s.store_alternate_name as store_other_name
-    , s.store_type as store_format_code
-    , s.store_type_description as store_format_name
-    , s.store_manager_id as store_manager_code
-    , s.store_manager_name
-    , s.store_street_address_line_1 as address_1
-    , s.store_street_address_line_2 as address_2
-    , s.store_street_address_line_3 as address_3
-    , s.store_street_address_line_4 as address_4
-    , s.store_street_address_line_5 as address_5
-    , s.store_phone_number as phone_num
-    , s.store_fax_number as fax_num
-    , s.store_country as country_name
-    , s.store_region as region_name
-    , s.store_city as city_name
-    , s.store_district as district_name
-    , s.store_county as county_name
-    , s.store_province as province_name
-    , s.store_open_date
-    , s.store_close_date
-    , s.last_relocation_date as store_move_date
-    , s.last_remodel_date as store_renovation_date
-    , s.zip_code
-    , s.is_web_store as web_store_flag
-    , s.is_franchise_store as franchise_store_flag
-    --, s.is_closed as store_closed_flag is_closed flag is not correct
-    , case  
-    	when s.store_close_date is not null then 'Y'
-    	else 'N'
-    end as store_closed_flag
-    , s.is_test_store as test_store_flag
-    , s.is_comparable_store as comp_store_flag
-    , s.etl_first_load as first_load_date
-    , s.etl_last_update as last_update_date
-    , s.store_hierarchies_key
-        
-    , h1.l1_hierarchy_display_name 						as h1_hierarchy_display_name
-    , trim(split(h1.l4_hierarchy_display_name,'>')[0]) 	as h1_l1_hierarchy_name
-    , h1.l4_hierarchy_name 								as h1_l1_hierarchy_code
-    , trim(split(h1.l3_hierarchy_display_name,'>')[1]) 	as h1_l2_hierarchy_name
-    , h1.l3_hierarchy_name 								as h1_l2_hierarchy_code
-    , trim(split(h1.l2_hierarchy_display_name,'>')[2]) 	as h1_l3_hierarchy_name
-    , h1.l2_hierarchy_name 								as h1_l3_hierarchy_code
-    , trim(split(h1.l1_hierarchy_display_name,'>')[3]) 	as h1_l4_hierarchy_name
-    , h1.l1_hierarchy_name 								as h1_l4_hierarchy_code
-	, trim(split(h1.l1_hierarchy_display_name,'>')[4]) 	as h1_l5_hierarchy_name
-    , h1.l1_hierarchy_name 								as h1_l5_hierarchy_code
-	, trim(split(h1.l1_hierarchy_display_name,'>')[5]) 	as h1_l6_hierarchy_name
-    , h1.l1_hierarchy_name 								as h1_l6_hierarchy_code
+s.store_key
+, s.bu_key
+, s.store_id
+, s.store_operation as division_type_code
+, s.store_number as store_code
+, s.store_name
+, s.store_alternate_name as store_other_name
+, s.store_type as store_format_code
+, s.store_type_description as store_format_name
+, s.store_manager_id as store_manager_code
+, s.store_manager_name
+, s.store_street_address_line_1 as address_1
+, s.store_street_address_line_2 as address_2
+, s.store_street_address_line_3 as address_3
+, s.store_street_address_line_4 as address_4
+, s.store_street_address_line_5 as address_5
+, s.store_phone_number as phone_num
+, s.store_fax_number as fax_num
+, s.store_country as country_name
+, s.store_region as region_name
+, s.store_city as city_name
+, s.store_district as district_name
+, s.store_county as county_name
+, s.store_province as province_name
+, s.store_open_date
+, s.store_close_date
+, s.last_relocation_date as store_move_date
+, s.last_remodel_date as store_renovation_date
+, s.zip_code
+, s.is_web_store as web_store_flag
+, s.is_franchise_store as franchise_store_flag
+--, s.is_closed as store_closed_flag is_closed flag is not correct
+, case when s.store_close_date is not null then 'Y' else 'N' end as store_closed_flag
+, s.is_test_store as test_store_flag
+, s.is_comparable_store as comp_store_flag
+, s.etl_first_load as first_load_date
+, s.etl_last_update as last_update_date
 
-FROM rdm.d_store as s
-LEFT JOIN hierarchy_levels h1 ON s.store_hierarchies_key = h1.hierarchies_key AND h1.hierarchy_type = 'Store'
-WHERE h1.row_no = 1 or h1.row_no is null --temporary line since store and hierarchies is 1-many
+, h5.hierarchy_display_name AS h1_hierarchy_display_name
+
+, trim(split(h1.hierarchy_display_name,'>')[0]) AS h1_l1_hierarchy_name
+, h1.hierarchy_name AS h1_l1_hierarchy_code
+
+, trim(split(h2.hierarchy_display_name,'>')[1]) AS h1_l2_hierarchy_name
+, h2.hierarchy_name AS h1_l2_hierarchy_code
+
+, trim(split(h3.hierarchy_display_name,'>')[2]) AS h1_l3_hierarchy_name
+, h3.hierarchy_name AS h1_l3_hierarchy_code
+
+, trim(split(h4.hierarchy_display_name,'>')[3]) AS h1_4_hierarchy_name
+, h4.hierarchy_name AS h1_l4_hierarchy_code
+
+, trim(split(h5.hierarchy_display_name,'>')[4]) AS h1_l5_hierarchy_name
+, h5.hierarchy_name AS h1_l5_hierarchy_code
+
+from rdm.d_store s
+left join rdm.d_hierarchies hs5 on s.store_hierarchies_key = hs5.hierarchies_key and hierarchy_name = 'Store'
+left join rdm.d_hierarchy h5 on hs5.hierarchy_key = h5.hierarchy_key and h5.hierarchy_level = 5
+left join rdm.d_hierarchy h4 on h5.parent_key = h4.hierarchy_key
+left join rdm.d_hierarchy h3 on h4.parent_key = h3.hierarchy_key
+left join rdm.d_hierarchy h2 on h3.parent_key = h2.hierarchy_key
+left join rdm.d_hierarchy h1 on h2.parent_key = h1.hierarchy_key
+
+order by s.store_key
 """).write.mode("overwrite").saveAsTable("default.store")
